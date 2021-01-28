@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Error as IOError, ErrorKind, Read, Write},
+    io::{Error as IOError, ErrorKind, Read, Write},
     path::PathBuf,
 };
 
@@ -24,7 +24,6 @@ fn get_key(i: usize) -> u8 {
 
 fn encode(p: &PathBuf, out_dir: &PathBuf, buf_size: usize) -> Result<(), IOError> {
     println!("converting {:?}", p);
-    let f = File::open(p)?;
     let ext = match p
         .extension()
         .ok_or_else(|| IOError::new(ErrorKind::Other, "no extension"))?
@@ -45,18 +44,17 @@ fn encode(p: &PathBuf, out_dir: &PathBuf, buf_size: usize) -> Result<(), IOError
                 .ok_or_else(|| IOError::new(ErrorKind::Other, "no filename"))?,
         )
         .with_extension(ext);
-    let fout = File::create(&p_out)?;
-    let mut reader = BufReader::with_capacity(buf_size, f);
-    let mut writer = BufWriter::with_capacity(buf_size, fout);
-    let mut buf = [0; 0x7FFF];
+    let mut fin = File::open(p)?;
+    let mut fout = File::create(&p_out)?;
+    let mut buf = vec![0; buf_size];
     let mut offset: usize = 0;
-    while let Ok(n) = reader.read(&mut buf[..]) {
+    while let Ok(n) = fin.read(&mut buf) {
         buf.iter_mut()
             .take(n)
             .enumerate()
             .for_each(|(i, b)| *b ^= get_key(i + offset));
         offset += n;
-        writer.write_all(&buf[..n])?;
+        fout.write_all(&buf[..n])?;
         if n == 0 {
             break;
         }
